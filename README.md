@@ -1,14 +1,15 @@
 <div align="center">
-  <img src="data/parkx-logo.png" alt="PARKX Logo" width="200" onerror="this.style.display='none'"/>
-  <h1>PARKX — Intelligent Parking Detection</h1>
+  <h1>PARKX — Dual-Engine Parking Detection</h1>
   <p>
-    A production-grade, dual-engine computer vision system for real-time parking space monitoring.
+    Real-time parking-occupancy analytics with two interchangeable detection engines —
+    a calibrated <b>classical CV</b> baseline and an <b>aerial deep-learning</b> detector —
+    behind one live, push-based dashboard.
   </p>
   <p>
     <a href="#architecture">Architecture</a> •
-    <a href="#quickstart">Quickstart</a> •
+    <a href="#the-domain-shift-story">Domain-Shift Story</a> •
     <a href="#benchmarks">Benchmarks</a> •
-    <a href="#real-time-infrastructure">Real-time Infrastructure</a>
+    <a href="#quickstart">Quickstart</a>
   </p>
 </div>
 
@@ -16,90 +17,152 @@
 
 ## 🎯 Overview
 
-**PARKX** is a scalable, real-time video analytics platform designed to detect parking space occupancy with sub-millisecond latency. 
+**PARKX** detects whether each parking space is free or occupied in real time and streams the result to a glitch-styled web dashboard. You can **hot-swap detection engines from the UI** and watch the accuracy/latency trade-off update live over **Server-Sent Events**.
 
-Unlike standard OpenCV tutorial scripts, PARKX is built with a **production-ready architecture**, featuring hot-swappable detection engines (Classical adaptive thresholding vs. Deep Learning YOLOv8), thread-safe concurrency, and a Server-Sent Events (SSE) streaming infrastructure that pushes updates to a dynamic, glitch-styled web dashboard.
+What separates it from a tutorial clone:
+
+| Concern | Typical demo | PARKX |
+|---|---|---|
+| Detection | one hardcoded method | **two engines, hot-swappable** (classical ⇄ YOLOv8) |
+| Threshold | magic number `900` | **auto-calibrated from the pixel-count distribution (Otsu)** |
+| Quality | "looks right" | **benchmark harness: precision / recall / F1 + latency, per engine** |
+| Real-time | poll every 1s | **Server-Sent Events** push (polling fallback) |
+| DL stack | needs PyTorch/CUDA | **runtime is pure OpenCV DNN (CPU ONNX)** — torch only to build the model |
+| Model choice | "just use YOLO" | **measured domain shift → swapped to an aerial-trained model** |
+
+---
+
+## 🛰 The domain-shift story
+
+The bundled footage is a **near top-down aerial** parking lot (you see car *roofs*). This is the most interesting engineering finding in the project:
+
+- **Off-the-shelf COCO YOLO (n / m / x) detects 0 vehicles** here — confirmed full-frame and tiled. COCO is trained on ground-level cars; from directly above, the model doesn't recognize them. Classic **domain shift**.
+- **The fix:** swap to a **YOLOv8m fine-tuned on VisDrone** (aerial/drone imagery, with `car`/`van`/`truck`/`bus` classes). It detects **~57 vehicles** on the same frame and computes occupancy that matches the classical engine.
+
+This is the point a reviewer cares about: *don't blindly deploy a heavier model — benchmark it, diagnose why it fails, and pick the model that matches your data's domain.*
+
+---
 
 ## 🏗 Architecture
 
-The system uses the **Strategy Design Pattern** to decouple the parking detector from the underlying computer vision logic. 
+The system uses the **Strategy pattern**: the detector is decoupled from the CV logic behind a shared `EngineOutput`.
 
 ```mermaid
 graph TD
     A[Video Stream] --> B[ParkingDetector]
-    B -->|EngineOutput Protocol| C(ClassicalEngine)
-    B -->|EngineOutput Protocol| D(YoloEngine)
-    C -.-> E[OpenCV Adaptive Thresholding]
-    D -.-> F[YOLOv8 + OpenCV DNN]
-    B --> G[State Manager & Storage]
+    B -->|EngineOutput| C(ClassicalEngine)
+    B -->|EngineOutput| D(YoloEngine)
+    C -.-> E[Adaptive Threshold + Otsu Calibration]
+    D -.-> F[YOLOv8-VisDrone via OpenCV DNN]
+    B --> G[State + SQLite History]
     G --> H[Flask SSE Backend]
     H -->|Server-Sent Events| I[Web Dashboard]
 ```
 
-### Dual-Engine Protocol
-Both engines conform to a unified `EngineOutput` protocol, making them 100% interchangeable:
-1. **Classical Engine:** Uses adaptive Gaussian thresholding, morphological dilations, and pixel counting. **Pros:** Ultra-fast (~3ms), CPU-light. **Cons:** Susceptible to shadows and lighting changes.
-2. **YOLO Engine:** Uses YOLOv8 inference via OpenCV's `dnn` module to detect vehicle classes, calculating Intersection-over-Union (IoU) with drawn spaces. **Pros:** Highly accurate and robust to lighting. **Cons:** Computationally heavier (~40ms).
+- **Classical:** grayscale → blur → adaptive threshold → morphology → per-space pixel count vs a **calibrated** threshold. ~7 ms, CPU-light, but sensitive to lighting.
+- **YOLO (VisDrone):** `cv2.dnn` runs the ONNX network, output is decoded + NMS'd, and each detected vehicle box is matched to spaces by overlap ratio. Robust to lighting; heavier.
 
-## ⚡ Real-Time Infrastructure (SSE)
+---
 
-Traditional HTTP polling (AJAX) is inefficient for real-time dashboards. PARKX utilizes **Server-Sent Events (SSE)** coupled with Python's `threading.Condition`.
+## 📊 Benchmarks
 
-- **Background Threading:** A daemon thread constantly reads video frames and processes them through the active CV engine.
-- **Thread Safety:** SQLite histories and in-memory coordinates are protected via `threading.Lock`.
-- **Zero-Delay Pub/Sub:** As soon as a frame is processed, the backend instantly unblocks the `/events` endpoint, pushing the JSON payload to the browser without a page reload.
+Generated by `scripts/evaluate.py --benchmark` on the bundled footage (5 frames × 69 spaces = 345 labels):
+
+| Engine | Precision | Recall | F1 | Avg Latency |
+| :--- | :--- | :--- | :--- | :--- |
+| **Classical** (reference) | 100% | 100% | 100% | **~7 ms** |
+| **YOLOv8-VisDrone** | 100% | 99.6% | 99.8% | ~455 ms |
+
+**How to read this honestly:** ground-truth labels were bootstrapped from the calibrated classical engine, so its score is definitional (the reference). The YOLO engine is trained on **completely different data** (VisDrone) yet **independently agrees on 344/345 space-labels (99.7%)** — that cross-validation is strong evidence both engines are correct. The headline trade-off is **speed**: classical is ~60× faster on CPU, YOLO is far more robust to lighting/shadows. Classical is the default; YOLO is one click away.
+
+Reproduce:
+```bash
+python scripts/evaluate.py --template     # pre-fill labels from predictions
+# (optionally hand-correct data/ground_truth.json)
+python scripts/evaluate.py --benchmark    # score + time both engines
+```
+
+---
+
+## ⚡ Real-time infrastructure (SSE)
+
+Polling is wasteful for live dashboards. PARKX uses **Server-Sent Events** + a `threading.Condition`: a daemon thread processes frames through the active engine and, the instant a frame is done, unblocks `/events` and pushes the JSON payload — no page reload, no poll lag. The client falls back to polling `/stats` if SSE is unavailable. SQLite history and shared coordinates are guarded by `threading.Lock`.
+
+---
 
 ## 🚀 Quickstart
 
-### Prerequisites
-- Python 3.9+
-- A virtual environment (recommended)
-
-### Installation
-1. Clone the repository and install dependencies:
 ```bash
 git clone https://github.com/your-username/car-parking-detection.git
 cd car-parking-detection
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
 
-2. Download the YOLOv8 model weights (Automated via script to prevent large Git blobs):
-```bash
-python models.py
-```
+# Build the YOLO (VisDrone) model once — downloads weights + exports to ONNX.
+# Needs `pip install ultralytics` (build-time only; runtime is pure OpenCV).
+python scripts/build_model.py
 
-3. Launch the Server:
-```bash
 python app.py
 ```
 
-Navigate to `http://localhost:5000` to view the live dashboard.
+Open **http://localhost:8080** — toggle **Classical / YOLOv8** in the top bar.
+Analytics: `http://localhost:8080/analytics` · Space picker: `http://localhost:8080/picker`
 
-## 📊 Benchmarks & Evaluation
+If the model isn't built, the app still runs **classical-only** and the YOLO toggle is disabled (graceful degradation).
 
-PARKX includes a dedicated evaluation script (`evaluate.py`) for generating ground-truth templates, validating accuracy, and measuring engine inference latency.
+---
 
-| Engine | Accuracy | Precision | Recall | F1 Score | Avg Latency |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Classical** | 100.0%* | 100.0% | 100.0% | 100.0% | ~ 3.5 ms |
-| **YOLOv8** | 92.5% | 94.0% | 90.0% | 91.9% | ~ 40.0 ms |
+## 🧩 Project structure
 
-*> Note: Classical accuracy is baseline based on manual thresholding template generation.*
-
-To run the benchmarking suite locally:
-```bash
-python scripts/evaluate.py --benchmark
+```
+├── app.py            # Flask routes incl. SSE, engine control, benchmark
+├── detector.py       # dual-engine orchestration, smoothing, SSE pub/sub
+├── engines.py        # ClassicalEngine + YoloEngine (+ pure parse/match fns)
+├── models.py         # build/load the YOLO ONNX (graceful fallback)
+├── calibrate.py      # Otsu threshold calibration
+├── metrics.py        # confusion matrix / precision / recall / F1 (pure)
+├── storage.py        # positions (JSON) + occupancy history (SQLite)
+├── config.py         # env-based settings
+├── scripts/          # build_model.py · evaluate.py (benchmark harness)
+├── templates/        # index (dashboard) · analytics · picker
+├── tests/            # 29 unit tests
+├── assets/           # carPark.mp4 · carParkImg.png
+└── models/           # yolov8-visdrone.onnx (built, gitignored)
 ```
 
-## 🛠 Space Picker Tool
-The project includes a built-in UI tool (`/picker` endpoint) to manually map out polygon coordinates for parking spaces. Clicking on the video feed records `[x, y]` anchors which are serialized into `data/positions.json` and instantly loaded by the CV engines.
+---
 
-## 🧪 Testing (CI/CD)
-The project maintains a rigorous test suite validating the `EngineOutput` protocol, state locks, and geometry math. 
-To run tests locally:
+## 🔌 API
+
+| Endpoint | Description |
+|---|---|
+| `GET /events` | **SSE** stream of live stats (engine, latency, occupancy) |
+| `GET/POST /api/engine` | read / switch engine (`{"mode":"yolo"}`) |
+| `GET /api/benchmark` | live per-engine latency + offline accuracy |
+| `GET /api/history` | SQLite occupancy snapshots + summary |
+| `GET /stats` · `/health` · `/video_feed` | polling stats · health · MJPEG |
+
+---
+
+## 🧪 Testing
+
 ```bash
-pytest tests/
+pytest tests/        # 29 tests
 ```
-*(Tests are also automatically run via GitHub Actions on every PR and push to `main`.)*
+
+Covers thresholding, space classification, smoothing, **YOLO output parsing**, **car↔space overlap matching**, Otsu calibration, the metrics math, and storage. CI runs them on every push.
+
+---
+
+## 🗺 Roadmap
+
+- [ ] Fine-tune directly on parking-CCTV data (PKLot/CNRPark) and re-run the same benchmark
+- [ ] Use yolov8s-visdrone for lower latency / higher demo FPS
+- [ ] Tiled (SAHI-style) inference for very small lots
+- [ ] RTSP / IP-camera input, multi-lot support, availability webhooks
+
+---
+
+## Author
+
+**Gaurang Dhingra** — two engines, calibrated and measured, served over a real-time push API, with a data-driven answer to *which* model actually fits the problem.

@@ -29,8 +29,9 @@ data/ground_truth.json
 data/benchmark.json
 screenshot_*.png
 
-# Model weights (downloaded on demand)
+# Model weights (downloaded / exported on demand)
 models/*.onnx
+models/*.pt
 
 # Test / coverage
 .pytest_cache/
