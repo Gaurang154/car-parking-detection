@@ -1,0 +1,11 @@
+# YOLOv8 inference runs through opencv-python's bundled DNN module (cv2.dnn) —
+# no PyTorch / ultralytics / GPU required. CPU ONNX only.
+opencv-python>=4.8.0
+cvzone>=1.6.0
+numpy>=1.24.0
+flask>=3.0.0
+python-dotenv>=1.0.0
+
+# Dev / test
+pytest>=8.0.0
+pytest-cov>=4.1.0

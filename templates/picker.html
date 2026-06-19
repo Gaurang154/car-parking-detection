@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PARKX — Space Picker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:     #050505;
+      --border: rgba(255,255,255,0.10);
+      --orange: #FF5500;
+      --white:  #ffffff;
+      --muted:  rgba(255,255,255,0.38);
+      --green:  #22c55e;
+      --red:    #ef4444;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Space Mono', monospace;
+      overflow: hidden;
+    }
+
+    .shell {
+      margin: 14px;
+      height: calc(100vh - 28px);
+      border: 1.5px solid rgba(255,255,255,0.16);
+      border-radius: 22px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #0b0b0b;
+    }
+
+    /* Nav */
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .logo-pill {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 0.82rem;
+      letter-spacing: 3px;
+      padding: 8px 20px;
+      border-radius: 100px;
+      background: var(--orange);
+      color: #000;
+    }
+    .nav-pill {
+      font-size: 0.58rem;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      padding: 7px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      text-decoration: none;
+      transition: border-color .2s, color .2s;
+    }
+    .nav-pill:hover { border-color: rgba(255,255,255,0.4); color: var(--white); }
+    .nav-pill.active { border-color: var(--orange); color: var(--orange); }
+    .nav-sep { flex: 1; }
+    .count-pill {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      padding: 7px 18px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--white);
+    }
+    .count-pill span { color: var(--orange); }
+
+    /* Content */
+    .content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Canvas area */
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: auto;
+      background: #000;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow-y: auto;
+    }
+
+    .sb-block {
+      padding: 18px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .sb-label {
+      font-size: 0.55rem;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* Instructions */
+    .instr-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 0.65rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .instr-item:last-child { margin-bottom: 0; }
+    .instr-key {
+      flex-shrink: 0;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-size: 0.6rem;
+      letter-spacing: 1px;
+    }
+
+    /* Big number */
+    .big-num {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 3.5rem;
+      line-height: 1;
+      color: var(--white);
+    }
+    .big-sub {
+      font-size: 0.58rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+      margin-top: 6px;
+      text-transform: uppercase;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 11px 0;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--white);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .2s, border-color .2s, color .2s;
+      margin-bottom: 8px;
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.3); }
+    .btn.danger { border-color: rgba(239,68,68,0.4); color: var(--red); }
+    .btn.danger:hover { background: rgba(239,68,68,0.08); }
+    .btn.primary { border-color: var(--orange); color: var(--orange); }
+    .btn.primary:hover { background: rgba(255,85,0,0.1); }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      padding: 10px 22px;
+      border-radius: 100px;
+      font-size: 0.62rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--white);
+      opacity: 0;
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Mode indicator */
+    .mode-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 10;
+      padding: 5px 14px;
+      border-radius: 100px;
+      font-size: 0.58rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: rgba(5,5,5,0.7);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+    .mode-badge.add    { border-color: rgba(34,197,94,0.5);  color: var(--green); }
+    .mode-badge.remove { border-color: rgba(239,68,68,0.5);  color: var(--red);   }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Nav -->
+  <nav>
+    <div class="logo-pill">PARKX</div>
+    <a class="nav-pill" href="/">Dashboard</a>
+    <div class="nav-pill active">Space Picker</div>
+    <div class="nav-sep"></div>
+    <div class="count-pill">Spaces: <span id="nav-count">0</span></div>
+  </nav>
+
+  <div class="content">
+
+    <!-- Canvas -->
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="canvas"></canvas>
+      <div class="mode-badge add" id="mode-badge">Left click — Add</div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+
+      <div class="sb-block">
+        <div class="sb-label">How to use</div>
+        <div class="instr-item">
+          <span class="instr-key">L-Click</span>
+          <span>Place a parking space at that position</span>
+        </div>
+        <div class="instr-item">
+          <span class="instr-key">R-Click</span>
+          <span>Remove a space you've already placed</span>
+        </div>
+        <div class="instr-item">
+          <span class="instr-key">Scroll</span>
+          <span>Pan around the image if it's large</span>
+        </div>
+      </div>
+
+      <div class="sb-block">
+        <div class="sb-label">Spaces Marked</div>
+        <div class="big-num" id="count">0</div>
+        <div class="big-sub">parking spaces</div>
+      </div>
+
+      <div class="sb-block">
+        <div class="sb-label">Space Size</div>
+        <div style="font-size:0.7rem;color:var(--muted);line-height:1.8">
+          Width &nbsp;— <span style="color:#fff">107 px</span><br/>
+          Height — <span style="color:#fff">48 px</span>
+        </div>
+      </div>
+
+      <div class="sb-block">
+        <div class="sb-label">Actions</div>
+        <button class="btn primary" onclick="saveSpaces()">Save to CarParkPos</button>
+        <a href="/" style="text-decoration:none">
+          <button class="btn" style="width:100%">← Back to Dashboard</button>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx    = canvas.getContext('2d');
+  const wrap   = document.getElementById('canvas-wrap');
+  const modeBadge = document.getElementById('mode-badge');
+
+  let spaces = [];
+  let W = 107, H = 48;
+  let imgEl = new Image();
+  let imgLoaded = false;
+
+  // Load parking lot image
+  imgEl.onload = () => {
+    imgLoaded = true;
+    canvas.width  = imgEl.naturalWidth;
+    canvas.height = imgEl.naturalHeight;
+    redraw();
+  };
+  imgEl.src = '/picker/image';
+
+  // Load existing spaces
+  async function loadSpaces() {
+    const r = await fetch('/picker/spaces');
+    const d = await r.json();
+    spaces = d.spaces;
+    W = d.width;
+    H = d.height;
+    updateCount();
+    redraw();
+  }
+  loadSpaces();
+
+  function redraw() {
+    if (!imgLoaded) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(imgEl, 0, 0);
+
+    spaces.forEach(([x, y]) => {
+      // Fill
+      ctx.fillStyle = 'rgba(255, 85, 0, 0.15)';
+      ctx.fillRect(x, y, W, H);
+      // Border
+      ctx.strokeStyle = '#FF5500';
+      ctx.lineWidth   = 1.5;
+      ctx.strokeRect(x, y, W, H);
+      // Corner dots
+      ctx.fillStyle = '#FF5500';
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function updateCount() {
+    const n = spaces.length;
+    document.getElementById('count').textContent    = n;
+    document.getElementById('nav-count').textContent = n;
+  }
+
+  function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: Math.round((e.clientX - rect.left) * scaleX),
+      y: Math.round((e.clientY - rect.top)  * scaleY),
+    };
+  }
+
+  // Left click → add
+  canvas.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const { x, y } = getCanvasPos(e);
+    const r = await fetch('/picker/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x: x - Math.round(W/2), y: y - Math.round(H/2) }),
+    });
+    const d = await r.json();
+    await loadSpaces();
+    toast('Space added');
+  });
+
+  // Right click → remove
+  canvas.addEventListener('contextmenu', async (e) => {
+    e.preventDefault();
+    const { x, y } = getCanvasPos(e);
+    modeBadge.className = 'mode-badge remove';
+    modeBadge.textContent = 'R-Click — Remove';
+    setTimeout(() => {
+      modeBadge.className = 'mode-badge add';
+      modeBadge.textContent = 'Left click — Add';
+    }, 1500);
+    await fetch('/picker/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x, y }),
+    });
+    await loadSpaces();
+    toast('Space removed');
+  });
+
+  async function saveSpaces() {
+    toast('Saved — ' + spaces.length + ' spaces');
+  }
+
+  async function clearAll() {
+    if (!confirm('Clear all ' + spaces.length + ' spaces?')) return;
+    await fetch('/picker/clear', { method: 'POST' });
+    await loadSpaces();
+    toast('All spaces cleared');
+  }
+
+  // Toast
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PARKX — Analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #050505; --surface: #0b0b0b; --border: rgba(255,255,255,0.10);
+      --orange: #FF5500; --white: #ffffff; --muted: rgba(255,255,255,0.38); --green: #22c55e;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; background: var(--bg); color: var(--white);
+      font-family: 'Space Mono', monospace; overflow: hidden;
+    }
+    .shell {
+      margin: 14px; height: calc(100vh - 28px);
+      border: 1.5px solid rgba(255,255,255,0.16); border-radius: 22px;
+      display: flex; flex-direction: column; overflow: hidden; background: var(--surface);
+    }
+    nav {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .logo-pill {
+      font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 0.82rem;
+      letter-spacing: 3px; padding: 8px 20px; border-radius: 100px;
+      background: var(--orange); color: #000;
+    }
+    .nav-pill {
+      font-size: 0.58rem; letter-spacing: 1.8px; text-transform: uppercase;
+      padding: 7px 16px; border-radius: 100px; border: 1px solid var(--border);
+      color: var(--muted); text-decoration: none; transition: border-color .2s, color .2s;
+    }
+    .nav-pill:hover, .nav-pill.active { border-color: rgba(255,255,255,0.4); color: var(--white); }
+    .nav-pill.active { border-color: var(--orange); color: var(--orange); }
+    .nav-sep { flex: 1; }
+    .content {
+      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto 1fr; gap: 0; overflow-y: auto;
+    }
+    .summary-row {
+      grid-column: 1 / -1; display: flex; gap: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .summary-card {
+      flex: 1; padding: 20px 24px; border-right: 1px solid rgba(255,255,255,0.05);
+    }
+    .summary-card:last-child { border-right: none; }
+    .summary-label {
+      font-size: 0.55rem; letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .summary-val {
+      font-family: 'Orbitron', sans-serif; font-weight: 900;
+      font-size: 2.4rem; line-height: 1; letter-spacing: -1px;
+    }
+    .chart-panel {
+      padding: 24px; border-right: 1px solid rgba(255,255,255,0.05);
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .chart-panel:last-child { border-right: none; }
+    .panel-title {
+      font-size: 0.55rem; letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 16px;
+    }
+    .chart-wrap { flex: 1; min-height: 0; position: relative; min-height: 200px; }
+
+    /* Benchmark */
+    .bench-row {
+      grid-column: 1 / -1;
+      display: grid; grid-template-columns: 1.3fr 1fr;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .bench-panel { padding: 24px; border-right: 1px solid rgba(255,255,255,0.05); }
+    .bench-panel:last-child { border-right: none; }
+    table.bench { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+    table.bench th, table.bench td {
+      text-align: right; padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    table.bench th:first-child, table.bench td:first-child { text-align: left; }
+    table.bench th {
+      font-size: 0.5rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+    }
+    table.bench td { font-variant-numeric: tabular-nums; }
+    .eng-name { font-family: 'Orbitron', sans-serif; font-weight: 900; letter-spacing: 1px; }
+    .eng-classical { color: #fff; }
+    .eng-yolo { color: var(--orange); }
+    .bench-note {
+      margin-top: 16px; padding: 12px 14px;
+      border: 1px solid rgba(255,85,0,0.25); border-radius: 10px;
+      background: rgba(255,85,0,0.06);
+      font-size: 0.62rem; line-height: 1.6; color: rgba(255,255,255,0.6);
+    }
+    .bench-note b { color: var(--orange); }
+    .chart-wrap-sm { position: relative; height: 200px; }
+    .empty-state {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 0.7rem; letter-spacing: 1px; text-align: center;
+      padding: 40px;
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <nav>
+    <div class="logo-pill">PARKX</div>
+    <a class="nav-pill" href="/">Live Feed</a>
+    <a class="nav-pill active" href="/analytics">Analytics</a>
+    <a class="nav-pill" href="/picker">Space Picker</a>
+    <div class="nav-sep"></div>
+    <a class="nav-pill" href="/">← Dashboard</a>
+  </nav>
+
+  <div class="content">
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-label">Samples Collected</div>
+        <div class="summary-val" id="s-samples">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Avg Availability</div>
+        <div class="summary-val" id="s-avg">--%</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Peak Availability</div>
+        <div class="summary-val" style="color:var(--green)" id="s-max">--%</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Lowest Availability</div>
+        <div class="summary-val" style="color:var(--orange)" id="s-min">--%</div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="panel-title">Availability Over Time</div>
+      <div class="chart-wrap" id="chart-avail-wrap">
+        <canvas id="chart-avail"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="panel-title">Occupied vs Free Spaces</div>
+      <div class="chart-wrap" id="chart-occ-wrap">
+        <canvas id="chart-occ"></canvas>
+      </div>
+    </div>
+
+    <!-- Benchmark: Classical vs YOLO -->
+    <div class="bench-row">
+      <div class="bench-panel">
+        <div class="panel-title">Engine Benchmark — Accuracy vs Speed</div>
+        <table class="bench">
+          <thead>
+            <tr>
+              <th>Engine</th><th>Accuracy</th><th>Precision</th>
+              <th>Recall</th><th>F1</th><th>Latency</th>
+            </tr>
+          </thead>
+          <tbody id="bench-body">
+            <tr><td colspan="6" style="color:var(--muted);text-align:center;padding:24px">
+              Loading benchmark…
+            </td></tr>
+          </tbody>
+        </table>
+        <div class="bench-note" id="bench-note">
+          Latency is measured live on the current frame. Accuracy is computed offline
+          against hand-labeled frames — run <b>python evaluate.py --benchmark</b> to populate it.
+        </div>
+      </div>
+      <div class="bench-panel">
+        <div class="panel-title">Inference Latency (ms)</div>
+        <div class="chart-wrap-sm"><canvas id="chart-latency"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: 'rgba(255,255,255,0.5)', font: { family: 'Space Mono', size: 10 } } } },
+    scales: {
+      x: { ticks: { color: 'rgba(255,255,255,0.35)', maxTicksLimit: 8, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y: { ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    },
+  };
+
+  let availChart = null;
+  let occChart = null;
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function showEmpty(wrapId, msg) {
+    const wrap = document.getElementById(wrapId);
+    wrap.innerHTML = `<div class="empty-state">${msg}</div>`;
+  }
+
+  async function loadAnalytics() {
+    const r = await fetch('/api/history?limit=120');
+    const data = await r.json();
+    const snaps = data.snapshots;
+    const sum = data.summary;
+
+    document.getElementById('s-samples').textContent = sum.samples;
+    document.getElementById('s-avg').textContent = sum.avg_pct_free + '%';
+    document.getElementById('s-max').textContent = sum.max_pct_free + '%';
+    document.getElementById('s-min').textContent = sum.min_pct_free + '%';
+
+    if (!snaps.length) {
+      showEmpty('chart-avail-wrap', 'Collecting data…<br>Run the dashboard for a few minutes to populate history.');
+      showEmpty('chart-occ-wrap', 'No occupancy snapshots yet.<br>Snapshots are recorded every 5 seconds while the detector runs.');
+      return;
+    }
+
+    const labels = snaps.map(s => formatTime(s.timestamp));
+    const pctFree = snaps.map(s => s.pct_free);
+    const free = snaps.map(s => s.free);
+    const occupied = snaps.map(s => s.occupied);
+
+    if (availChart) availChart.destroy();
+    availChart = new Chart(document.getElementById('chart-avail'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Availability %',
+          data: pctFree,
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34,197,94,0.08)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 0,
+          borderWidth: 2,
+        }],
+      },
+      options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 100 } } },
+    });
+
+    if (occChart) occChart.destroy();
+    occChart = new Chart(document.getElementById('chart-occ'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Free', data: free, borderColor: '#ffffff', tension: 0.3, pointRadius: 0, borderWidth: 2 },
+          { label: 'Occupied', data: occupied, borderColor: '#FF5500', tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        ],
+      },
+      options: chartDefaults,
+    });
+  }
+
+  loadAnalytics();
+  setInterval(loadAnalytics, 10000);
+
+  /* ── Engine benchmark ── */
+  let latencyChart = null;
+  const pct = (v) => (v === undefined || v === null) ? '—' : (v * 100).toFixed(1) + '%';
+  const ms = (v) => (v === undefined || v === null) ? '—' : v.toFixed(1) + ' ms';
+
+  async function loadBenchmark() {
+    let data;
+    try { data = await (await fetch('/api/benchmark')).json(); }
+    catch (_) { return; }
+
+    const engines = data.engines || {};
+    const order = ['classical', 'yolo'];
+    const names = order.filter(n => engines[n]);
+
+    document.getElementById('bench-body').innerHTML = names.map(n => {
+      const e = engines[n];
+      return `<tr>
+        <td class="eng-name eng-${n}">${n === 'yolo' ? 'YOLOv8n' : 'Classical'}</td>
+        <td>${pct(e.accuracy)}</td>
+        <td>${pct(e.precision)}</td>
+        <td>${pct(e.recall)}</td>
+        <td>${pct(e.f1)}</td>
+        <td>${ms(e.latency_ms ?? e.avg_latency_ms)}</td>
+      </tr>`;
+    }).join('');
+
+    if (latencyChart) latencyChart.destroy();
+    latencyChart = new Chart(document.getElementById('chart-latency'), {
+      type: 'bar',
+      data: {
+        labels: names.map(n => n === 'yolo' ? 'YOLOv8n' : 'Classical'),
+        datasets: [{
+          label: 'Latency (ms)',
+          data: names.map(n => engines[n].latency_ms ?? engines[n].avg_latency_ms ?? 0),
+          backgroundColor: names.map(n => n === 'yolo' ? '#FF5500' : 'rgba(255,255,255,0.7)'),
+          borderRadius: 6,
+        }],
+      },
+      options: { ...chartDefaults, plugins: { legend: { display: false } } },
+    });
+  }
+
+  loadBenchmark();
+  setInterval(loadBenchmark, 15000);
+</script>
+</body>
+</html>

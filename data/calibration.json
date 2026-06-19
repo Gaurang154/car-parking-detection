@@ -1,0 +1,10 @@
+{
+  "threshold": 983.4,
+  "samples": 4692,
+  "min": 0,
+  "max": 2505,
+  "mean": 1399.5,
+  "median": 1544.0,
+  "method": "otsu",
+  "calibrated_at": "2026-06-19T18:11:25.705349+00:00"
+}

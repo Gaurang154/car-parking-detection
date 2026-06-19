@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PARKX — Intelligent Parking Detection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ── Root ────────────────────────────────────────────────────────── */
+    :root {
+      --bg:      #050505;
+      --surface: #0b0b0b;
+      --border:  rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.05);
+      --orange:  #FF5500;
+      --orange2: rgba(255,85,0,0.18);
+      --white:   #ffffff;
+      --muted:   rgba(255,255,255,0.38);
+      --green:   #22c55e;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Space Mono', monospace;
+      overflow: hidden;
+    }
+
+    /* ── Outer shell — the big rounded Glitch container ─────────────── */
+    .shell {
+      margin: 14px;
+      height: calc(100vh - 28px);
+      border: 1.5px solid rgba(255,255,255,0.16);
+      border-radius: 22px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: 0 0 60px rgba(255,85,0,0.05);
+    }
+
+    /* ── Nav ─────────────────────────────────────────────────────────── */
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .logo-pill {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 0.82rem;
+      letter-spacing: 3px;
+      padding: 8px 20px;
+      border-radius: 100px;
+      background: var(--orange);
+      color: #000;
+      user-select: none;
+    }
+
+    .nav-pill {
+      font-size: 0.58rem;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      padding: 7px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      text-decoration: none;
+      transition: border-color .2s, color .2s;
+    }
+    .nav-pill:hover, .nav-pill.active {
+      border-color: rgba(255,255,255,0.4);
+      color: var(--white);
+    }
+    .nav-pill.active { border-color: var(--orange); color: var(--orange); }
+
+    .nav-sep { flex: 1; }
+
+    /* Engine toggle */
+    .engine-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 4px 3px 12px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+    }
+    .engine-label {
+      font-size: 0.5rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+    .engine-btn {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.55rem;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 100px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .2s, color .2s;
+    }
+    .engine-btn.active { background: var(--orange); color: #000; font-weight: 700; }
+    .engine-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .engine-btn:not(.active):not(:disabled):hover { color: var(--white); }
+
+    .clock-pill {
+      font-size: 0.62rem;
+      letter-spacing: 1.5px;
+      padding: 7px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .online-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 16px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      font-size: 0.58rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: glow 2s ease-in-out infinite;
+    }
+    @keyframes glow {
+      0%,100% { box-shadow: 0 0 8px var(--green); opacity: 1; }
+      50%      { box-shadow: 0 0 3px var(--green); opacity: .5; }
+    }
+
+    /* ── Content row ─────────────────────────────────────────────────── */
+    .content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Video hero ──────────────────────────────────────────────────── */
+    .video-hero {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+      background: #000;
+    }
+
+    /* Giant watermark */
+    .wm {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 0 -20px 0;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .wm-text {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 28vw;
+      line-height: 0.78;
+      color: rgba(255,255,255,0.025);
+      letter-spacing: -2px;
+      white-space: nowrap;
+      margin-left: -10px;
+      margin-bottom: -20px;
+    }
+
+    .video-feed {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 2;
+      display: block;
+    }
+
+    /* Vignette gradient over video */
+    .vignette {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      background:
+        linear-gradient(to top,  rgba(5,5,5,0.75) 0%, transparent 45%),
+        linear-gradient(to right, rgba(5,5,5,0.35) 0%, transparent 40%);
+      pointer-events: none;
+    }
+
+    /* LIVE badge */
+    .live-badge {
+      position: absolute;
+      top: 14px; left: 14px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(5,5,5,0.65);
+      border: 1px solid rgba(255,255,255,0.13);
+      backdrop-filter: blur(10px);
+      padding: 5px 14px;
+      border-radius: 100px;
+      font-size: 0.58rem;
+      letter-spacing: 2.5px;
+      font-weight: 700;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: blink 1.2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+    /* Headline over video */
+    .video-headline {
+      position: absolute;
+      bottom: 28px;
+      left: 22px;
+      z-index: 10;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: clamp(1.6rem, 2.8vw, 2.6rem);
+      line-height: 1.06;
+      text-transform: uppercase;
+      letter-spacing: -0.5px;
+    }
+    .video-headline .accent { color: var(--orange); }
+
+    /* Annotation line — right side overlay */
+    .anno-group {
+      position: absolute;
+      top: 0; bottom: 0;
+      right: 0;
+      width: 220px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 30px;
+      padding-right: 14px;
+    }
+    .anno {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      justify-content: flex-end;
+    }
+    .anno-label {
+      text-align: right;
+      margin-right: 10px;
+    }
+    .anno-label .anno-key {
+      font-size: 0.52rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: block;
+    }
+    .anno-label .anno-val {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 1.6rem;
+      line-height: 1;
+      display: block;
+    }
+    .anno-line {
+      width: 40px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--orange));
+    }
+    .anno-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 10px var(--orange), 0 0 20px rgba(255,85,0,0.4);
+      flex-shrink: 0;
+    }
+
+    /* ── Stats sidebar ───────────────────────────────────────────────── */
+    .stats-panel {
+      width: 290px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+    }
+    .stats-panel::-webkit-scrollbar { display: none; }
+
+    .stat-block {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .stat-label {
+      font-size: 0.55rem;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-number {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 4.2rem;
+      line-height: 1;
+      letter-spacing: -2px;
+    }
+    .stat-number.col-white  { color: var(--white); }
+    .stat-number.col-orange { color: var(--orange); }
+
+    .stat-sub {
+      font-size: 0.58rem;
+      color: var(--muted);
+      letter-spacing: 1px;
+      margin-top: 5px;
+    }
+
+    .mini-bar {
+      height: 2px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 100px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .mini-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width .7s ease;
+    }
+
+    /* Donut block */
+    .donut-block {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border2);
+    }
+    .donut-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-top: 12px;
+    }
+    .donut-svg { flex-shrink: 0; }
+    .donut-pct {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 1.8rem;
+      color: var(--white);
+      line-height: 1;
+    }
+    .donut-leg-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.58rem;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+    .donut-leg-item:first-child { margin-top: 0; }
+    .donut-tick {
+      width: 12px; height: 2px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Status block */
+    .status-block {
+      padding: 18px 20px;
+      flex: 1;
+    }
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      font-size: 0.6rem;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border2);
+    }
+    .status-row:last-child { border-bottom: none; }
+    .status-row .sk { color: var(--muted); text-transform: uppercase; }
+    .status-row .sv { color: var(--white); }
+    .chip {
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-size: 0.55rem;
+      letter-spacing: 1.2px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .chip-green  { background: rgba(34,197,94,0.12); color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
+    .chip-orange { background: var(--orange2);        color: var(--orange); border: 1px solid rgba(255,85,0,0.3);  }
+
+    /* ── Ticker strip ────────────────────────────────────────────────── */
+    .ticker-strip {
+      border-top: 1px solid var(--border);
+      height: 36px;
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+    .ticker-inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      white-space: nowrap;
+      animation: scroll 35s linear infinite;
+      font-size: 0.55rem;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    @keyframes scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .sep { color: var(--orange); margin: 0 22px; font-size: 0.45rem; }
+    .ticker-hl { color: var(--white); }
+
+    /* ── Scrollbar hidden globally ───────────────────────────────────── */
+    * { scrollbar-width: none; }
+    *::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── NAV ────────────────────────────────────────────────────────── -->
+  <nav>
+    <div class="logo-pill">PARKX</div>
+    <a class="nav-pill active" href="/">Live Feed</a>
+    <a class="nav-pill" href="/analytics">Analytics</a>
+    <a class="nav-pill" href="/picker">Space Picker</a>
+    <div class="nav-sep"></div>
+    <div class="engine-toggle" id="engine-toggle">
+      <span class="engine-label">Engine</span>
+      <button class="engine-btn active" data-engine="classical" id="eng-classical">Classical</button>
+      <button class="engine-btn" data-engine="yolo" id="eng-yolo">YOLOv8</button>
+    </div>
+    <div class="clock-pill" id="clock">--:--:--</div>
+    <div class="online-pill">
+      <div class="status-dot" id="conn-dot"></div>
+      <span id="conn-text">Live (SSE)</span>
+    </div>
+  </nav>
+
+  <!-- ── CONTENT ────────────────────────────────────────────────────── -->
+  <div class="content">
+
+    <!-- Video hero -->
+    <div class="video-hero">
+      <div class="wm"><div class="wm-text">PARK</div></div>
+      <img class="video-feed" src="/video_feed" alt="Live parking feed"/>
+      <div class="vignette"></div>
+
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Live
+      </div>
+
+      <div class="video-headline">
+        Intelligent<br/>
+        Parking<br/>
+        <span class="accent">Detection.</span>
+      </div>
+
+      <!-- Annotation overlays -->
+      <div class="anno-group">
+        <div class="anno">
+          <div class="anno-label">
+            <span class="anno-key">Free Spaces</span>
+            <span class="anno-val" id="a-free">--</span>
+          </div>
+          <div class="anno-line"></div>
+          <div class="anno-dot"></div>
+        </div>
+        <div class="anno">
+          <div class="anno-label">
+            <span class="anno-key">Occupied</span>
+            <span class="anno-val" style="color:var(--orange)" id="a-occ">--</span>
+          </div>
+          <div class="anno-line"></div>
+          <div class="anno-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats sidebar -->
+    <div class="stats-panel">
+
+      <!-- Free -->
+      <div class="stat-block">
+        <div class="stat-label">Free Spaces</div>
+        <div class="stat-number col-white" id="s-free">--</div>
+        <div class="stat-sub" id="s-free-of">of — total</div>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" id="bar-free" style="background:#fff;width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Occupied -->
+      <div class="stat-block">
+        <div class="stat-label">Occupied</div>
+        <div class="stat-number col-orange" id="s-occ">--</div>
+        <div class="stat-sub" id="s-occ-pct">-- % of capacity</div>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" id="bar-occ" style="background:var(--orange);width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Donut -->
+      <div class="donut-block">
+        <div class="stat-label">Occupancy Ratio</div>
+        <div class="donut-row">
+          <svg class="donut-svg" width="76" height="76" viewBox="0 0 76 76">
+            <circle cx="38" cy="38" r="30" fill="none"
+                    stroke="rgba(255,255,255,0.06)" stroke-width="9"/>
+            <circle id="ring-free" cx="38" cy="38" r="30" fill="none"
+                    stroke="#ffffff" stroke-width="9"
+                    stroke-dasharray="188.5" stroke-dashoffset="188.5"
+                    stroke-linecap="round" transform="rotate(-90 38 38)"
+                    style="transition:stroke-dashoffset .8s ease"/>
+          </svg>
+          <div>
+            <div class="donut-pct" id="d-pct">--%</div>
+            <div style="font-size:.52rem;color:var(--muted);letter-spacing:1.5px;margin-top:4px;text-transform:uppercase">Available</div>
+            <div class="donut-leg-item" style="margin-top:10px">
+              <div class="donut-tick" style="background:#fff"></div>
+              Free — <span id="d-free">--</span>
+            </div>
+            <div class="donut-leg-item">
+              <div class="donut-tick" style="background:var(--orange)"></div>
+              Taken — <span id="d-occ">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="status-block">
+        <div class="stat-label" style="margin-bottom:10px">System</div>
+        <div class="status-row">
+          <span class="sk">Detector</span>
+          <span class="chip chip-green">Running</span>
+        </div>
+        <div class="status-row">
+          <span class="sk">Engine</span>
+          <span class="chip chip-orange" id="st-engine">--</span>
+        </div>
+        <div class="status-row">
+          <span class="sk">Inference</span>
+          <span class="sv" id="st-latency">-- ms</span>
+        </div>
+        <div class="status-row">
+          <span class="sk">Total Spaces</span>
+          <span class="sv" id="st-total">{{ total }}</span>
+        </div>
+        <div class="status-row">
+          <span class="sk">Availability</span>
+          <span class="chip chip-orange" id="st-avail">--%</span>
+        </div>
+        <div class="status-row">
+          <span class="sk">Source</span>
+          <span class="sv">carPark.mp4</span>
+        </div>
+        <div class="status-row">
+          <span class="sk">Frame Rate</span>
+          <span class="sv" id="st-fps">-- fps</span>
+        </div>
+        <div class="status-row">
+          <span class="sk">Updated</span>
+          <span class="sv" id="st-time">--</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── TICKER ──────────────────────────────────────────────────────── -->
+  <div class="ticker-strip">
+    <div class="ticker-inner" id="ticker"></div>
+  </div>
+
+</div>
+
+<script>
+  const CIRC = 2 * Math.PI * 30; // 188.5
+
+  /* Clock */
+  function tick() {
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('en-US', { hour12: false });
+  }
+  setInterval(tick, 1000); tick();
+
+  /* Build ticker HTML (duplicated for seamless loop) */
+  function buildTicker(d) {
+    const seg = [
+      `TOTAL SPACES <span class="ticker-hl">${d.total}</span>`,
+      `FREE <span class="ticker-hl">${d.free}</span>`,
+      `OCCUPIED <span class="ticker-hl">${d.occupied}</span>`,
+      `AVAILABILITY <span class="ticker-hl">${d.pct_free}%</span>`,
+      `DETECTOR <span class="ticker-hl">ACTIVE</span>`,
+      `SYSTEM <span class="ticker-hl">ONLINE</span>`,
+    ].join('<span class="sep">◆</span>') + '<span class="sep">◆</span>';
+    document.getElementById('ticker').innerHTML = seg + seg;
+  }
+
+  /* Apply a stats payload (from SSE or polling) to the UI */
+  function applyStats(d) {
+    try {
+      /* Sidebar numbers */
+      document.getElementById('s-free').textContent    = d.free;
+      document.getElementById('s-occ').textContent     = d.occupied;
+      document.getElementById('s-free-of').textContent = `of ${d.total} total spaces`;
+      document.getElementById('s-occ-pct').textContent = `${d.pct_occupied}% of capacity`;
+
+      /* Bars */
+      document.getElementById('bar-free').style.width = d.pct_free     + '%';
+      document.getElementById('bar-occ').style.width  = d.pct_occupied + '%';
+
+      /* Ring */
+      const offset = (CIRC * (1 - d.pct_free / 100)).toFixed(2);
+      document.getElementById('ring-free').style.strokeDashoffset = offset;
+
+      /* Donut labels */
+      document.getElementById('d-pct').textContent  = d.pct_free + '%';
+      document.getElementById('d-free').textContent = d.free;
+      document.getElementById('d-occ').textContent  = d.occupied;
+
+      /* Annotations on video */
+      document.getElementById('a-free').textContent = d.free;
+      document.getElementById('a-occ').textContent  = d.occupied;
+
+      /* Status */
+      document.getElementById('st-total').textContent = d.total;
+      document.getElementById('st-avail').textContent = d.pct_free + '%';
+      document.getElementById('st-fps').textContent = (d.fps || 0).toFixed(1) + ' fps';
+      document.getElementById('st-engine').textContent = (d.engine || '--').toUpperCase();
+      document.getElementById('st-latency').textContent = (d.latency_ms || 0).toFixed(1) + ' ms';
+      document.getElementById('st-time').textContent  =
+        new Date().toLocaleTimeString('en-US', { hour12: false });
+
+      buildTicker(d);
+    } catch (_) {}
+  }
+
+  /* ── Real-time transport: Server-Sent Events, with polling fallback ── */
+  function setConn(text, ok) {
+    document.getElementById('conn-text').textContent = text;
+    document.getElementById('conn-dot').style.background = ok ? 'var(--green)' : 'var(--orange)';
+  }
+
+  let pollTimer = null;
+  function startPolling() {
+    if (pollTimer) return;
+    setConn('Live (poll)', false);
+    pollTimer = setInterval(async () => {
+      try { applyStats(await (await fetch('/stats')).json()); } catch (_) {}
+    }, 1000);
+  }
+
+  function startSSE() {
+    if (!window.EventSource) { startPolling(); return; }
+    const es = new EventSource('/events');
+    es.onopen = () => setConn('Live (SSE)', true);
+    es.onmessage = (e) => { try { applyStats(JSON.parse(e.data)); } catch (_) {} };
+    es.onerror = () => { es.close(); startPolling(); };
+  }
+  startSSE();
+
+  /* ── Engine toggle ── */
+  async function loadEngineState() {
+    try {
+      const s = await (await fetch('/api/engine')).json();
+      const yoloBtn = document.getElementById('eng-yolo');
+      if (!s.yolo_available) {
+        yoloBtn.disabled = true;
+        yoloBtn.title = 'YOLOv8 model unavailable — run: python models.py';
+      }
+      setActiveEngine(s.engine);
+    } catch (_) {}
+  }
+
+  function setActiveEngine(engine) {
+    document.querySelectorAll('.engine-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.engine === engine));
+  }
+
+  document.querySelectorAll('.engine-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (btn.disabled || btn.classList.contains('active')) return;
+      const engine = btn.dataset.engine;
+      const r = await fetch('/api/engine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: engine }),
+      });
+      if (r.ok) setActiveEngine(engine);
+    });
+  });
+  loadEngineState();
+</script>
+</body>
+</html>

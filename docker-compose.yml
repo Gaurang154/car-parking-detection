@@ -1,0 +1,10 @@
+services:
+  parkx:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - VIDEO_SOURCE=carPark.mp4
+      - HISTORY_INTERVAL_SEC=5
