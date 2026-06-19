@@ -9,6 +9,7 @@ Run:  python calibrate.py
 Output: data/calibration.json  (loaded automatically by the detector)
 """
 
+import argparse
 import json
 import logging
 from datetime import datetime, timezone

@@ -10,7 +10,6 @@ from typing import List, Tuple
 from config import (
     HISTORY_DB_PATH,
     HISTORY_INTERVAL_SEC,
-    LEGACY_POSITIONS_PATH,
     POSITIONS_PATH,
 )
 
@@ -34,18 +33,6 @@ class PositionStore:
                 raw = json.load(f)
             self._positions = [(int(p["x"]), int(p["y"])) for p in raw["spaces"]]
             logger.info("Loaded %d spaces from %s", len(self._positions), self._path)
-            return
-
-        if self._path == POSITIONS_PATH and LEGACY_POSITIONS_PATH.exists():
-            with open(LEGACY_POSITIONS_PATH, "rb") as f:
-                legacy = pickle.load(f)
-            self._positions = [(int(x), int(y)) for x, y in legacy]
-            self._save()
-            logger.info(
-                "Migrated %d spaces from legacy pickle to %s",
-                len(self._positions),
-                self._path,
-            )
             return
 
         self._positions = []

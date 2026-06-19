@@ -9,10 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-VIDEO_SOURCE = os.getenv("VIDEO_SOURCE", "carPark.mp4")
-IMG_PATH = BASE_DIR / os.getenv("IMG_PATH", "carParkImg.png")
+VIDEO_SOURCE = os.getenv("VIDEO_SOURCE", "assets/carPark.mp4")
+IMG_PATH = BASE_DIR / os.getenv("IMG_PATH", "assets/carParkImg.png")
 POSITIONS_PATH = BASE_DIR / os.getenv("POSITIONS_PATH", "data/positions.json")
-LEGACY_POSITIONS_PATH = BASE_DIR / "CarParkPos"
 HISTORY_DB_PATH = BASE_DIR / os.getenv("HISTORY_DB_PATH", "data/history.db")
 CALIBRATION_PATH = BASE_DIR / os.getenv("CALIBRATION_PATH", "data/calibration.json")
 GROUND_TRUTH_PATH = BASE_DIR / os.getenv("GROUND_TRUTH_PATH", "data/ground_truth.json")

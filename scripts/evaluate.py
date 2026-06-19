@@ -24,11 +24,15 @@ per engine so the Analytics page can show the accuracy-vs-speed trade-off.
 import argparse
 import json
 import logging
+import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List
 
 import cv2
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from config import BENCHMARK_PATH, GROUND_TRUTH_PATH, VIDEO_SOURCE
 from detector import ParkingDetector

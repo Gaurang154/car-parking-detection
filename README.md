@@ -90,7 +90,7 @@ PARKX includes a dedicated evaluation script (`evaluate.py`) for generating grou
 
 To run the benchmarking suite locally:
 ```bash
-python evaluate.py --benchmark
+python scripts/evaluate.py --benchmark
 ```
 
 ## 🛠 Space Picker Tool

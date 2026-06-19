@@ -10,7 +10,7 @@ import logging
 import urllib.request
 from pathlib import Path
 
-from config import YOLO_MODEL_PATH, YOLO_MODEL_SHA1, YOLO_MODEL_URL
+from config import MODELS_DIR, YOLO_MODEL_PATH, YOLO_MODEL_SHA1, YOLO_MODEL_URL
 
 logger = logging.getLogger(__name__)
 
